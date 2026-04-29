@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Literary Viz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Literary Text Visualizer</h1>
+            <p>Upload a book in PDF format and get AI-powered visualizations</p>
+        </header>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <p>Drag & drop your PDF here</p>
+            <p>or</p>
+            <label class="upload-btn">
+                Choose File
+                <input type="file" id="fileInput" accept=".pdf" hidden>
+            </label>
+        </div>
+
+        <div class="results" id="results" style="display:none;">
+            <h2>Analysis Results</h2>
+            <div class="tabs">
+                <button class="tab active" data-tab="emotion">Emotion</button>
+                <button class="tab" data-tab="tension">Tension</button>
+                <button class="tab" data-tab="characters">Characters</button>
+                <button class="tab" data-tab="rhythm">Rhythm</button>
+                <button class="tab" data-tab="punctuation">Punctuation</button>
+                <button class="tab" data-tab="map">Locations</button>
+            </div>
+            <div class="tab-content" id="tabContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
