@@ -5,41 +5,42 @@ from collections import Counter, defaultdict
 nlp = spacy.load("en_core_web_sm")
 
 TITLE_TOKENS = {
-    "mr","mrs","ms","miss","sir","madam","dr","prof","professor",
-    "capt","captain","st","saint","rev","reverend"
+    "mr", "mrs", "ms", "miss", "sir", "madam", "dr", "prof", "professor",
+    "capt", "captain", "st", "saint", "rev", "reverend"
 }
 
 BAD_PERSON_WORDS = {
-    "chapter","section","articles","article","christmas","dollars","cents",
-    "pneumonia","freezing","square","west","trail","river","creek"
+    "chapter", "section", "articles", "article", "christmas", "dollars", "cents",
+    "pneumonia", "freezing", "square", "west", "trail", "river", "creek",
+    "mill", "farm", "mountain", "hill", "valley", "road", "street", "lane",
+    "house", "hall", "manor", "castle", "church", "village", "town", "city",
+    "hero", "boiler", "supplied", "beauty", "cucaracha", "bits", "bull",
+    "snuffed", "afterwards", "hitherto", "remove", "cruel", "shall", "hearken"
 }
 
-ALLOW_SHORT_NAMES = {"jim","sue","bob","tom","sam","ben","dan","ann","amy","eve","joe","max","liz","meg","kate"}
+ALLOW_SHORT_NAMES = {
+    "jim", "sue", "bob", "tom", "sam", "ben", "dan", "ann", "amy", "eve",
+    "joe", "max", "liz", "meg", "kate"
+}
 
 ROLE_HEADS = {
-    "man","woman","boy","girl","child","children",
-    "old man","old woman","young man","young woman",
-    "stranger","friend","mother","father","daughter","son",
-    "husband","wife","gentleman","lady","doctor","nurse","policeman","cop",
-    "waiter","bartender","servant","soldier","captain","judge","lawyer"
+    "man", "woman", "boy", "girl", "child", "children",
+    "old man", "old woman", "young man", "young woman",
+    "stranger", "friend", "mother", "father", "daughter", "son",
+    "husband", "wife", "gentleman", "lady", "doctor", "nurse", "policeman", "cop",
+    "waiter", "bartender", "servant", "soldier", "captain", "judge", "lawyer"
 }
 
-ANIMALS = {"dog","wolf","horse","cat","bear","fox","deer","rabbit","bird","crow","snake","fish"}
+ANIMALS = {"dog", "wolf", "horse", "cat", "bear", "fox", "deer", "rabbit", "bird", "crow", "snake", "fish"}
 
 MIN_PERSON_MENTIONS = 2
-MIN_ROLE_MENTIONS   = 5
+MIN_ROLE_MENTIONS = 5
 MIN_ANIMAL_MENTIONS = 2
-
-LINK_WORDS = {
-    "called","known","nickname","nicknamed","aka","a.k.a","a.k.a.",
-    "short","shorter","shortened","named"
-}
-
 ROLE_REL_FRAC = 0.25
 
 
 def clean_text_token(s: str) -> str:
-    s = s.strip().replace("\u2019", "'")
+    s = s.strip().replace("\u2019", "'").replace("\u2018", "'")
     s = re.sub(r'["""]', "", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
@@ -69,18 +70,21 @@ def is_garbage_person(name: str) -> bool:
     if not name:
         return True
     low = name.lower()
-    if len(name.split()) == 1 and name.islower() and low not in ALLOW_SHORT_NAMES:
+    words = name.split()
+
+    if len(words) == 1 and name.islower() and low not in ALLOW_SHORT_NAMES:
         return True
     if len(low) <= 2 and low not in ALLOW_SHORT_NAMES:
         return True
-    if low in BAD_PERSON_WORDS:
+    if any(w.lower() in BAD_PERSON_WORDS for w in words):
         return True
-    if any(w.lower() in BAD_PERSON_WORDS for w in name.split()):
+    if len(words) > 4:
         return True
-    if len(name.split()) > 4:
+    if len(words) >= 2 and name[:1].islower():
         return True
-    if len(name.split()) >= 2 and name[:1].islower():
+    if name.isupper() and len(name) > 3:
         return True
+
     return False
 
 
@@ -124,7 +128,7 @@ def extract_entities(sentences: list):
             continue
         ch_low = normalize_phrase(chunk.text)
         toks = [t.lemma_.lower() for t in chunk if t.is_alpha]
-        toks = [t for t in toks if t not in {"the","a","an","this","that","his","her","my","your","our","their"}]
+        toks = [t for t in toks if t not in {"the", "a", "an", "this", "that", "his", "her", "my", "your", "our", "their"}]
         two = " ".join(toks[-2:]) if len(toks) >= 2 else None
         if ch_low in ROLE_HEADS or head_lemma in ROLE_HEADS or (two and two in ROLE_HEADS):
             label = (two if two in ROLE_HEADS else head_lemma)
@@ -144,12 +148,26 @@ def is_initials_variant(n: str) -> bool:
 
 def build_alias_map(people_names):
     raw_cnt = Counter(people_names)
-    print(f"raw_cnt: {raw_cnt.most_common(30)}")
-    alias = {}
-    reasons = {}
+    print(f"raw_cnt top 30: {raw_cnt.most_common(30)}")
 
-    full = [n for n in raw_cnt if len(n.split()) >= 2]
-    print(f"full names: {full[:20]}")
+    alias = {}
+
+    # Однословные имена с высоким count — самостоятельные персонажи, не трогаем
+    high_count_singles = {n for n in raw_cnt if len(n.split()) == 1 and raw_cnt[n] >= 10}
+    print(f"high_count_singles: {high_count_singles}")
+    print(f"Suppose Tom in raw_cnt: {raw_cnt.get('Suppose Tom', 0)}")
+    # Фильтруем full names — убираем те у которых первое слово это самостоятельный персонаж
+    full = []
+    for n in raw_cnt:
+        if len(n.split()) < 2:
+            continue
+    # Убираем только если первое слово защищённое И полное имя редкое
+        if n.split()[0] in high_count_singles and raw_cnt[n] < 5:
+            continue
+        full.append(n)
+
+    print(f"full names after filter: {full[:20]}")
+
     by_first = defaultdict(list)
     by_last = defaultdict(list)
 
@@ -158,20 +176,24 @@ def build_alias_map(people_names):
         by_first[toks[0]].append(n)
         by_last[toks[-1]].append(n)
 
+    # first name → unique full name
     for first, fns in by_first.items():
         if len(fns) == 1 and first in raw_cnt:
-            full_name = fns[0]
-            last_word = full_name.split()[-1]
-            if last_word[0].islower():
-                continue
-            alias[first] = full_name
-            reasons[first] = "first name -> unique full name"
+            if first not in high_count_singles:
+                alias[first] = fns[0]
+            elif raw_cnt.get(fns[0], 0) >= 5:
+            # Даже защищённое имя связываем если полная версия часто встречается
+                 alias[first] = fns[0]
 
+    # last name → unique full name
     for last, fns in by_last.items():
         if len(fns) == 1 and last in raw_cnt:
-            alias[last] = fns[0]
-            reasons[last] = "last name -> unique full name"
+            if last not in high_count_singles:
+                alias[last] = fns[0]
+            elif raw_cnt.get(fns[0], 0) >= 5:
+               alias[last] = fns[0]
 
+    # initials → full name
     for n in list(raw_cnt.keys()):
         if is_initials_variant(n):
             toks = n.replace(".", "").split()
@@ -180,13 +202,17 @@ def build_alias_map(people_names):
             if cand:
                 canon = max(cand, key=lambda x: raw_cnt[x])
                 alias[n] = canon
-                reasons[n] = "initials -> matching full name"
 
+    # nickname/prefix → unique longer name
     singles = [n for n in raw_cnt if len(n.split()) == 1]
     singles_key = {n: name_key(n) for n in singles}
     full_first_key = {f: name_key(f.split()[0]) for f in full}
 
     for short in singles:
+        if short in alias:
+            continue
+        if short in high_count_singles:
+            continue
         s_key = singles_key[short]
         if len(s_key) < 3:
             continue
@@ -204,9 +230,8 @@ def build_alias_map(people_names):
         cand = list(dict.fromkeys(cand))
         if len(cand) == 1:
             alias[short] = cand[0]
-            reasons[short] = "nickname/prefix -> unique longer name"
 
-    return alias, raw_cnt, reasons
+    return alias, raw_cnt
 
 
 def apply_alias(name: str, alias: dict) -> str:
@@ -215,93 +240,13 @@ def apply_alias(name: str, alias: dict) -> str:
 
 def merge_plural_variants(canon_cnt: Counter):
     updated = Counter(canon_cnt)
-    merges = []
     for n in list(updated.keys()):
         if len(n) > 3 and n.endswith("s"):
             base = n[:-1]
             if base in updated:
-                merges.append((n, base))
-    for plural, base in merges:
-        updated[base] += updated[plural]
-        del updated[plural]
-    return updated, merges
-
-
-def _sent_contains_name(sent: str, name: str) -> bool:
-    return bool(re.search(rf"\b{re.escape(name)}\b", sent))
-
-
-def build_evidence_aliases(sentences: list, people_raw: list, window_sent=1):
-    sents = [re.sub(r"\s+", " ", s) for s in sentences]
-    cnt = Counter(people_raw)
-    short_names = [n for n in cnt if len(n.split()) == 1 and n[:1].isupper()]
-    full_names  = [n for n in cnt if len(n.split()) >= 2 and n[:1].isupper()]
-
-    if not short_names or not full_names:
-        return {}, {}
-
-    hits = defaultdict(list)
-    for i, sent in enumerate(sents):
-        for n in set(short_names + full_names):
-            if _sent_contains_name(sent, n):
-                hits[n].append(i)
-
-    alias = {}
-    reasons = {}
-
-    def has_strict_pattern(full, short, sent_text):
-        if re.search(rf"\b{re.escape(full)}\b\s*\(\s*{re.escape(short)}\s*\)", sent_text):
-            return "pattern: FULL (SHORT)"
-        if re.search(rf"\b{re.escape(short)}\b\s*\(\s*{re.escape(full)}\s*\)", sent_text):
-            return "pattern: SHORT (FULL)"
-        low = sent_text.lower()
-        if _sent_contains_name(sent_text, full) and _sent_contains_name(sent_text, short):
-            if any(w in low for w in LINK_WORDS) or "known as" in low:
-                return "pattern: link-word in same sentence"
-        return None
-
-    for short in short_names:
-        for full in full_names:
-            common = set(hits[short]).intersection(hits[full])
-            for si in common:
-                r = has_strict_pattern(full, short, sents[si])
-                if r:
-                    if short not in alias or cnt[full] > cnt[alias[short]]:
-                        alias[short] = full
-                        reasons[short] = r
-
-    for short in short_names:
-        if short in alias:
-            continue
-        hs = hits.get(short, [])
-        if not hs:
-            continue
-        hs_set = set(hs)
-        scored = []
-        for full in full_names:
-            hf = hits.get(full, [])
-            if not hf:
-                continue
-            near = 0
-            for fi in hf:
-                for d in range(-window_sent, window_sent + 1):
-                    if (fi + d) in hs_set:
-                        near += 1
-                        break
-            scored.append((full, near))
-        if not scored:
-            continue
-        scored.sort(key=lambda x: x[1], reverse=True)
-        best_full, best_score = scored[0]
-        second_score = scored[1][1] if len(scored) > 1 else 0
-        if best_score >= 2 and best_score >= 2 * max(1, second_score) and cnt[best_full] >= 2:
-            # Не связываем если короткое имя уже часто встречается само по себе
-            if cnt[short] >= 10:
-                continue
-            alias[short] = best_full
-            reasons[short] = f"proximity: near={best_score}, second={second_score}"
-
-    return alias, reasons
+                updated[base] += updated[n]
+                del updated[n]
+    return updated
 
 
 def select_main_roles(role_cnt: Counter, min_abs=5, rel_frac=0.25):
@@ -351,48 +296,25 @@ def extract_characters(sentences: list) -> dict:
     print("Extracting characters...")
     people, roles, animals = extract_entities(sentences)
 
-    e_alias, e_reasons = build_evidence_aliases(sentences, people, window_sent=1)
-    print(f"e_alias: {e_alias}")
-    alias_map, raw_people_cnt, reasons = build_alias_map(people)
-    print(f"Alias map (before evidence): {alias_map}")
-    # Фильтруем e_alias — не перезаписываем часто встречающиеся имена
-    filtered_e_alias = {
-        k: v for k, v in e_alias.items()
-        if raw_people_cnt.get(k, 0) < 10
-    }
-    alias_map = {**alias_map, **filtered_e_alias}
+    alias_map, raw_people_cnt = build_alias_map(people)
+    print(f"Alias map: {alias_map}")
 
     canon_people_cnt = Counter()
     for p in people:
         canon_people_cnt[apply_alias(p, alias_map)] += 1
 
-    canon_people_cnt, _ = merge_plural_variants(canon_people_cnt)
-
-    # Убираем имена у которых первое слово само по себе есть как отдельный персонаж
-    # Например "Napoleon Mill" удаляется если "Napoleon" уже есть
-    single_names = {n for n in canon_people_cnt if len(n.split()) == 1}
-    to_remove = set()
-    for name in list(canon_people_cnt.keys()):
-        if len(name.split()) >= 2:
-            first_word = name.split()[0]
-            if first_word in single_names and first_word in canon_people_cnt:
-                to_remove.add(name)
-    for name in to_remove:
-        # Переносим упоминания на однословную версию
-        canon_people_cnt[name.split()[0]] += canon_people_cnt[name]
-        del canon_people_cnt[name]
+    canon_people_cnt = merge_plural_variants(canon_people_cnt)
 
     role_cnt = Counter(roles)
     animal_cnt = Counter(animals)
 
-    main_people  = {n for n, c in canon_people_cnt.items() if c >= MIN_PERSON_MENTIONS}
-    main_roles   = select_main_roles(role_cnt, min_abs=MIN_ROLE_MENTIONS, rel_frac=ROLE_REL_FRAC)
+    main_people = {n for n, c in canon_people_cnt.items() if c >= MIN_PERSON_MENTIONS}
+    main_roles = select_main_roles(role_cnt, min_abs=MIN_ROLE_MENTIONS, rel_frac=ROLE_REL_FRAC)
     main_animals = {n for n, c in animal_cnt.items() if c >= MIN_ANIMAL_MENTIONS}
 
     entity_forms_map = build_entity_forms(people, alias_map, main_people, main_roles, main_animals)
 
     print(f"Characters found: people={sorted(main_people)}, roles={sorted(main_roles)}, animals={sorted(main_animals)}")
-    print(f"Alias map (final): {alias_map}")
 
     return {
         "main_cast": {
@@ -439,7 +361,7 @@ def compute_character_focus(sentences: list, parts: list, characters_data: dict)
         sent_range = part["sent_range"]
         a, b = sent_range.split("-")
         a, b = max(1, int(a)), min(n, int(b))
-        chunk = sentences[a-1:b]
+        chunk = sentences[a - 1:b]
         denom = max(1, len(chunk))
 
         focus_hits = {e: 0 for e in canonical_entities}

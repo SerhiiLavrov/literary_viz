@@ -332,19 +332,31 @@ function showCharacters() {
     const focus = currentData.character_focus;
     const parts = currentData.parts.map(p => `Part ${p.part}`);
 
-    const allChars = [
-        ...(chars.people || []),
-        ...(chars.roles || []),
-        ...(chars.animals || [])
-    ];
+    // Приоритет: сначала люди, потом животные, роли только если мало людей
+    const people = chars.people || [];
+    const animals = chars.animals || [];
+    const roles = chars.roles || [];
+    const allChars = people.length >= 6 
+        ? [...people, ...animals]
+        : [...people, ...animals, ...roles];
 
     if (allChars.length === 0) {
         tabContent.innerHTML = '<div class="loading"><p>No characters found</p></div>';
         return;
     }
 
+    // Сортируем по суммарным упоминаниям — топ-6 самых важных
+    const ranked = allChars
+        .filter(name => focus[name])
+        .map(name => ({
+            name,
+            total: focus[name].reduce((a, b) => a + b, 0)
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 6)
+        .map(x => x.name);
+
     const colors = ['#a78bfa', '#60a5fa', '#4ade80', '#f87171', '#fbbf24', '#34d399'];
-    const charNames = allChars.slice(0, 6);
 
     tabContent.innerHTML = `
         <h3 style="margin-bottom:16px; color:#ccc;">Character Focus</h3>
@@ -358,7 +370,7 @@ function showCharacters() {
             type: 'line',
             data: {
                 labels: parts,
-                datasets: charNames.map((name, i) => ({
+                datasets: ranked.map((name, i) => ({
                     label: name,
                     data: focus[name] || [],
                     borderColor: colors[i % colors.length],
@@ -380,11 +392,11 @@ function showCharacters() {
                 scales: {
                     y: {
                         grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#666' }
+                        ticks: { color: '#666', maxRotation: 45, minRotation: 45 }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#666' }
+                        ticks: { color: '#666', maxRotation: 45, minRotation: 45 }
                     }
                 }
             }
