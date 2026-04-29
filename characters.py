@@ -324,6 +324,7 @@ def extract_characters(sentences: list) -> dict:
         },
         "alias_map": alias_map,
         "entity_forms": {k: list(v) for k, v in entity_forms_map.items()},
+        "all_person_names": set(raw_people_cnt.keys()),
     }
 
 

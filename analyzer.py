@@ -42,17 +42,41 @@ def analyze_text(pdf_path: str) -> dict:
         "characters": characters_data["main_cast"],
         "character_focus": focus,
         "structure": structure,
-        "locations": extract_locations(sentences)
+        "locations": extract_locations(sentences, characters_data)
     }
 
-def extract_locations(sentences: list) -> list:
+def extract_locations(sentences: list, characters_data: dict = None) -> list:
     import spacy
+    from collections import Counter
     nlp = spacy.load("en_core_web_sm")
     full_text = " ".join(sentences)
     doc = nlp(full_text)
-    locations = list(set(
+    
+    DIRECTION_WORDS = {"east", "west", "north", "south", "island", "sound", "bay", "lake", "sea"}
+
+    char_names = set()
+    if characters_data:
+        main_cast = characters_data.get("main_cast", {})
+        for name in main_cast.get("people", []) + main_cast.get("roles", []) + main_cast.get("animals", []):
+            for word in name.split():
+                char_names.add(word.lower())
+        for name in characters_data.get("all_person_names", set()):
+            for word in name.split():
+                char_names.add(word.lower())
+
+    raw = [
         ent.text.strip() for ent in doc.ents
-        if ent.label_ in ("GPE", "LOC") and len(ent.text.strip()) > 2
-    ))
+        if ent.label_ in ("GPE", "LOC")
+        and len(ent.text.strip()) > 2
+        and ent.text.strip()[0].isupper()
+        and len(ent.text.strip().split()) <= 3
+        and ent.text.strip().lower() not in char_names
+        and ent.text.strip().lower() not in DIRECTION_WORDS
+        and not (len(ent.text.strip().split()) == 1 and len(ent.text.strip()) < 5)
+    ]
+
+    freq = Counter(raw)
+    locations = sorted([loc for loc, cnt in freq.items() if cnt >= 2])
+
     print(f"Locations found: {locations}")
     return locations
