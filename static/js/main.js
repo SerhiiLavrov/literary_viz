@@ -540,3 +540,84 @@ function showMap() {
             ${locationList}
         </div>`;
 }
+function showLibrary() {
+    document.getElementById('libraryModal').style.display = 'block';
+    loadLibrary();
+}
+
+function closeLibrary() {
+    document.getElementById('libraryModal').style.display = 'none';
+}
+
+function loadLibrary(query = '') {
+    const url = query ? `/library?q=${encodeURIComponent(query)}` : '/library';
+    fetch(url)
+        .then(r => r.json())
+        .then(books => renderLibrary(books));
+}
+
+function searchLibrary() {
+    const query = document.getElementById('librarySearch').value;
+    loadLibrary(query);
+}
+
+function renderLibrary(books) {
+    const list = document.getElementById('libraryList');
+    if (books.length === 0) {
+        list.innerHTML = '<p style="color:#666; text-align:center;">No books found</p>';
+        return;
+    }
+    list.innerHTML = books.map(book => `
+        <div style="padding:16px; background:#0f0f1a; border-radius:10px;
+            border:1px solid #222; margin-bottom:12px;
+            display:flex; justify-content:space-between; align-items:center;">
+            <div style="cursor:pointer; flex:1;" onclick="loadFromLibrary(${book.id})">
+                <div style="color:#e0e0e0; font-weight:500; margin-bottom:4px;">${book.title}</div>
+                <div style="color:#666; font-size:13px;">${book.author} · ${book.genre} · ${book.sentence_count} sentences</div>
+                <div style="color:#555; font-size:12px; margin-top:4px;">${book.summary ? book.summary.slice(0, 100) + '...' : ''}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; margin-left:16px;">
+                <div style="color:#a78bfa; font-size:12px;">${new Date(book.analyzed_at).toLocaleDateString()}</div>
+                <button onclick="selectForCompare(${book.id}, '${book.title}')"
+                    style="background:#1e1e35; border:1px solid #2a2a45; color:#60a5fa;
+                    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;">
+                    Compare
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+let compareId1 = null;
+let compareTitle1 = null;
+
+function selectForCompare(id, title) {
+    if (!compareId1) {
+        compareId1 = id;
+        compareTitle1 = title;
+        document.getElementById('librarySearch').placeholder = `Comparing "${title}" with... pick second book`;
+    } else if (compareId1 === id) {
+        compareId1 = null;
+        compareTitle1 = null;
+        document.getElementById('librarySearch').placeholder = 'Search by title or author...';
+    } else {
+        window.location.href = `/compare?id1=${compareId1}&id2=${id}`;
+    }
+}
+
+
+function loadFromLibrary(bookId) {
+    closeLibrary();
+    showLoading('Loading from library...');
+    fetch(`/library/${bookId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            currentData = data;
+            showMetadata(data);
+            showTab(currentTab);
+        })
+        .catch(err => {
+            tabContent.innerHTML = `<div class="loading"><p>Error: ${err.message}</p></div>`;
+        });
+}

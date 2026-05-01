@@ -75,5 +75,21 @@ def delete_library_book(book_id):
     delete_book(book_id)
     return jsonify({'success': True})
 
+@app.route('/compare')
+def compare():
+    return render_template('compare.html')
+
+@app.route('/compare/data')
+def compare_data():
+    id1 = request.args.get('id1', type=int)
+    id2 = request.args.get('id2', type=int)
+    if not id1 or not id2:
+        return jsonify({'error': 'Two book ids required'}), 400
+    book1 = get_book(id1)
+    book2 = get_book(id2)
+    if not book1 or not book2:
+        return jsonify({'error': 'Book not found'}), 404
+    return jsonify({'book1': book1, 'book2': book2})
+
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False)

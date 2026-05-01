@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare — Literary Viz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h1>Book Comparison</h1>
+                    <p id="compareSubtitle" style="color:#666;">Loading...</p>
+                </div>
+                <a href="/" style="
+                    background:#1e1e35; border:1px solid #2a2a45; color:#a78bfa;
+                    padding:10px 20px; border-radius:10px; cursor:pointer;
+                    font-size:14px; text-decoration:none;">
+                    ← Back
+                </a>
+            </div>
+        </header>
+
+        <div id="compareContent">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading comparison...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+        let book1 = null;
+        let book2 = null;
+        let currentTab = 'emotion';
+
+        const params = new URLSearchParams(window.location.search);
+        const id1 = params.get('id1');
+        const id2 = params.get('id2');
+
+        fetch(`/compare/data?id1=${id1}&id2=${id2}`)
+            .then(r => r.json())
+            .then(data => {
+                book1 = data.book1;
+                book2 = data.book2;
+                document.getElementById('compareSubtitle').textContent =
+                    `${book1.title} vs ${book2.title}`;
+                renderCompare();
+            });
+
+        function renderCompare() {
+            document.getElementById('compareContent').innerHTML = `
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('emotion', this)">Emotion</button>
+                    <button class="tab" onclick="switchTab('tension', this)">Tension</button>
+                    <button class="tab" onclick="switchTab('characters', this)">Characters</button>
+                    <button class="tab" onclick="switchTab('rhythm', this)">Rhythm</button>
+                    <button class="tab" onclick="switchTab('punctuation', this)">Punctuation</button>
+                    <button class="tab" onclick="switchTab('locations', this)">Locations</button>
+                </div>
+                <div id="compareTabContent" class="tab-content"></div>
+            `;
+            showEmotion();
+        }
+
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            currentTab = tab;
+            switch(tab) {
+                case 'emotion': showEmotion(); break;
+                case 'tension': showTension(); break;
+                case 'characters': showCharacters(); break;
+                case 'rhythm': showRhythm(); break;
+                case 'punctuation': showPunctuation(); break;
+                case 'locations': showLocations(); break;
+            }
+        }
+
+        function getContent() {
+            return document.getElementById('compareTabContent');
+        }
+
+        function showEmotion() {
+            const labels1 = book1.parts.map((p, i) => `Part ${i+1}`);
+            const labels2 = book2.parts.map((p, i) => `Part ${i+1}`);
+            const maxLen = Math.max(labels1.length, labels2.length);
+            const labels = Array.from({length: maxLen}, (_, i) => `Part ${i+1}`);
+
+            getContent().innerHTML = `
+                <h3 style="margin-bottom:16px; color:#ccc;">Emotional Valence</h3>
+                <div style="position:relative; width:100%; height:350px;">
+                    <canvas id="emotionChart"></canvas>
+                </div>`;
+
+            setTimeout(() => {
+                const ctx = document.getElementById('emotionChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: book1.title,
+                                data: book1.valence,
+                                borderColor: '#a78bfa',
+                                backgroundColor: 'rgba(167,139,250,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            },
+                            {
+                                label: book2.title,
+                                data: book2.valence,
+                                borderColor: '#60a5fa',
+                                backgroundColor: 'rgba(96,165,250,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, labels: { color: '#888' } } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } },
+                            x: { grid: { display: false }, ticks: { color: '#666', maxRotation: 45, minRotation: 45 } }
+                        }
+                    }
+                });
+            }, 100);
+        }
+
+        function showTension() {
+            const maxLen = Math.max(book1.parts.length, book2.parts.length);
+            const labels = Array.from({length: maxLen}, (_, i) => `Part ${i+1}`);
+
+            getContent().innerHTML = `
+                <h3 style="margin-bottom:16px; color:#ccc;">Narrative Tension</h3>
+                <div style="position:relative; width:100%; height:350px;">
+                    <canvas id="tensionChart"></canvas>
+                </div>`;
+
+            setTimeout(() => {
+                const ctx = document.getElementById('tensionChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: book1.title,
+                                data: book1.tension,
+                                borderColor: '#f87171',
+                                backgroundColor: 'rgba(248,113,113,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            },
+                            {
+                                label: book2.title,
+                                data: book2.tension,
+                                borderColor: '#fb923c',
+                                backgroundColor: 'rgba(251,146,60,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, labels: { color: '#888' } } },
+                        scales: {
+                            y: { min: 0, max: 10, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } },
+                            x: { grid: { display: false }, ticks: { color: '#666', maxRotation: 45, minRotation: 45 } }
+                        }
+                    }
+                });
+            }, 100);
+        }
+
+        function showCharacters() {
+            const colors = ['#a78bfa', '#60a5fa', '#4ade80', '#f87171', '#fbbf24', '#34d399'];
+
+            function renderCharChart(book, canvasId) {
+                const chars = book.characters;
+                const focus = book.character_focus;
+                const parts = book.parts.map((p, i) => `Part ${i+1}`);
+                const people = chars.people || [];
+                const animals = chars.animals || [];
+                const roles = chars.roles || [];
+                const allChars = people.length >= 6 ? [...people, ...animals] : [...people, ...animals, ...roles];
+                const ranked = allChars
+                    .filter(name => focus[name])
+                    .map(name => ({ name, total: focus[name].reduce((a, b) => a + b, 0) }))
+                    .sort((a, b) => b.total - a.total)
+                    .slice(0, 6)
+                    .map(x => x.name);
+
+                setTimeout(() => {
+                    const ctx = document.getElementById(canvasId).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: parts,
+                            datasets: ranked.map((name, i) => ({
+                                label: name,
+                                data: focus[name] || [],
+                                borderColor: colors[i % colors.length],
+                                backgroundColor: 'transparent',
+                                pointRadius: 3,
+                                tension: 0.4,
+                                borderWidth: 2
+                            }))
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true, labels: { color: '#888', boxWidth: 10, font: { size: 11 } } } },
+                            scales: {
+                                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } },
+                                x: { grid: { display: false }, ticks: { color: '#666', maxRotation: 45, minRotation: 45 } }
+                            }
+                        }
+                    });
+                }, 100);
+            }
+
+            getContent().innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                    <div>
+                        <h4 style="color:#a78bfa; margin-bottom:12px;">${book1.title}</h4>
+                        <div style="position:relative; height:250px;">
+                            <canvas id="charChart1"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color:#60a5fa; margin-bottom:12px;">${book2.title}</h4>
+                        <div style="position:relative; height:250px;">
+                            <canvas id="charChart2"></canvas>
+                        </div>
+                    </div>
+                </div>`;
+
+            renderCharChart(book1, 'charChart1');
+            renderCharChart(book2, 'charChart2');
+        }
+
+        function showRhythm() {
+            getContent().innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                    <div>
+                        <h4 style="color:#a78bfa; margin-bottom:12px;">${book1.title}</h4>
+                        <canvas id="rhythm1" width="400" height="300" style="width:100%;"></canvas>
+                    </div>
+                    <div>
+                        <h4 style="color:#60a5fa; margin-bottom:12px;">${book2.title}</h4>
+                        <canvas id="rhythm2" width="400" height="300" style="width:100%;"></canvas>
+                    </div>
+                </div>`;
+
+            drawRhythm('rhythm1', book1.structure.sentence_lengths);
+            drawRhythm('rhythm2', book2.structure.sentence_lengths);
+        }
+
+        function drawRhythm(canvasId, lengths) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fillRect(0, 0, w, h);
+
+            const dirs = [[1,0],[0,1],[-1,0],[0,-1]];
+
+            function simulate(scale) {
+                let x = 0, y = 0, dir = 0;
+                let minX = 0, maxX = 0, minY = 0, maxY = 0;
+                lengths.forEach(len => {
+                    x += dirs[dir][0] * len * scale;
+                    y += dirs[dir][1] * len * scale;
+                    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                    dir = (dir + 1) % 4;
+                });
+                return { minX, maxX, minY, maxY };
+            }
+
+            let scale = 6;
+            for (let i = 0; i < 20; i++) {
+                const { minX, maxX, minY, maxY } = simulate(scale);
+                const fw = maxX - minX, fh = maxY - minY;
+                if (fw === 0 || fh === 0) break;
+                const ratio = Math.min((w * 0.85) / fw, (h * 0.85) / fh);
+                scale *= ratio;
+                if (Math.abs(ratio - 1) < 0.01) break;
+            }
+
+            const { minX, maxX, minY, maxY } = simulate(scale);
+            const offsetX = w / 2 - (minX + maxX) / 2;
+            const offsetY = h / 2 - (minY + maxY) / 2;
+            const maxLen = Math.max(...lengths);
+
+            let x = offsetX, y = offsetY, dir = 0;
+            lengths.forEach(len => {
+                const pct = Math.min(len / maxLen, 1);
+                const r = Math.round(100 + pct * 155);
+                const b = Math.round(250 - pct * 100);
+                ctx.strokeStyle = `rgba(${r}, 100, ${b}, 0.85)`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                x += dirs[dir][0] * len * scale;
+                y += dirs[dir][1] * len * scale;
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                dir = (dir + 1) % 4;
+            });
+
+            ctx.beginPath();
+            ctx.arc(offsetX, offsetY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#4ade80';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#f87171';
+            ctx.fill();
+        }
+
+        function showPunctuation() {
+            const colorMap = {
+                '.': '#ffffff', ',': '#60a5fa', '!': '#ef4444', '?': '#fbbf24',
+                ';': '#60a5fa', ':': '#c084fc', '"': '#4ade80',
+                '\u201c': '#4ade80', '\u201d': '#4ade80', '—': '#fb923c',
+                '(': '#888', ')': '#888'
+            };
+
+            function renderPunct(punct) {
+                return punct.split('').map(ch => {
+                    const color = colorMap[ch] || '#444';
+                    return `<span style="color:${color}; font-size:14px; margin:1px;">${ch}</span>`;
+                }).join('');
+            }
+
+            getContent().innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                    <div>
+                        <h4 style="color:#a78bfa; margin-bottom:12px;">${book1.title}</h4>
+                        <div style="background:#0a0a14; border-radius:10px; padding:16px;
+                            font-family:monospace; line-height:2.2; word-break:break-all;
+                            border:1px solid #222; max-height:400px; overflow-y:auto;">
+                            ${renderPunct(book1.structure.punctuation)}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color:#60a5fa; margin-bottom:12px;">${book2.title}</h4>
+                        <div style="background:#0a0a14; border-radius:10px; padding:16px;
+                            font-family:monospace; line-height:2.2; word-break:break-all;
+                            border:1px solid #222; max-height:400px; overflow-y:auto;">
+                            ${renderPunct(book2.structure.punctuation)}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function showLocations() {
+            function renderLocs(locations) {
+                if (!locations || locations.length === 0)
+                    return '<p style="color:#666;">No locations found</p>';
+                return locations.map(loc =>
+                    `<div style="padding:6px 12px; background:#1e1e35; border-radius:6px;
+                        border:1px solid #333; font-size:13px; color:#ccc;">${loc}</div>`
+                ).join('');
+            }
+
+            getContent().innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                    <div>
+                        <h4 style="color:#a78bfa; margin-bottom:12px;">${book1.title}</h4>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            ${renderLocs(book1.locations)}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color:#60a5fa; margin-bottom:12px;">${book2.title}</h4>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            ${renderLocs(book2.locations)}
+                        </div>
+                    </div>
+                </div>`;
+        }
+    </script>
+</body>
+</html>
