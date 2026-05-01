@@ -3,6 +3,8 @@ from metadata import extract_metadata
 from emotions import analyze_emotions_tension
 from characters import extract_characters, compute_character_focus
 from structure import analyze_structure
+from database import get_book_by_title, save_analysis
+
 
 def analyze_text(pdf_path: str) -> dict:
     print("=== Starting analysis ===")
@@ -11,12 +13,36 @@ def analyze_text(pdf_path: str) -> dict:
     sentences = extract_sentences(pdf_path)
     full_text = " ".join(sentences)
 
-    print("Step 2: Analyzing emotions and tension...")
-    arcs = analyze_emotions_tension(sentences)
-
-    print("Step 3: Extracting metadata...")
+    print("Step 2: Extracting metadata...")
     raw_lines = get_raw_lines(pdf_path)
     metadata = extract_metadata(raw_lines, full_text)
+
+    # Check cache before running heavy analysis
+    if metadata["title"] and metadata["title"] != "Unknown":
+        cached = get_book_by_title(metadata["title"])
+        if cached:
+            print(f"Found in database: {metadata['title']}, returning cached result")
+            return {
+                "title": cached["title"],
+                "author": cached["author"],
+                "genre": cached["genre"],
+                "summary": cached["summary"],
+                "sentences": [],
+                "valence": cached.get("valence", []),
+                "tension": cached.get("tension", []),
+                "peak_part": cached.get("peak_part", 1),
+                "parts": cached.get("parts", []),
+                "characters": cached.get("characters", {}),
+                "character_focus": cached.get("character_focus", {}),
+                "structure": cached.get("structure", {}),
+                "locations": cached.get("locations", []),
+                "from_cache": True,
+                "book_id": cached["id"],
+                "sentence_count": cached.get("sentence_count", 0),
+            }
+
+    print("Step 3: Analyzing emotions and tension...")
+    arcs = analyze_emotions_tension(sentences)
 
     print("Step 4: Extracting characters...")
     characters_data = extract_characters(sentences)
@@ -29,7 +55,7 @@ def analyze_text(pdf_path: str) -> dict:
 
     print("=== Analysis complete ===")
 
-    return {
+    result = {
         "title": metadata["title"],
         "author": metadata["author"],
         "genre": metadata["genre"],
@@ -42,8 +68,17 @@ def analyze_text(pdf_path: str) -> dict:
         "characters": characters_data["main_cast"],
         "character_focus": focus,
         "structure": structure,
-        "locations": extract_locations(sentences, characters_data)
+        "locations": extract_locations(sentences, characters_data),
+        "from_cache": False,
+       
     }
+
+    # Save to database
+    book_id = save_analysis(result)
+    result["book_id"] = book_id
+
+    return result
+
 
 def extract_locations(sentences: list, characters_data: dict = None) -> list:
     import spacy
@@ -51,7 +86,7 @@ def extract_locations(sentences: list, characters_data: dict = None) -> list:
     nlp = spacy.load("en_core_web_sm")
     full_text = " ".join(sentences)
     doc = nlp(full_text)
-    
+
     DIRECTION_WORDS = {"east", "west", "north", "south", "island", "sound", "bay", "lake", "sea"}
 
     char_names = set()

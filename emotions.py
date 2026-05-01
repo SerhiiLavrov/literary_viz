@@ -138,8 +138,8 @@ def analyze_emotions_tension(sentences: list) -> dict:
         pace = clamp01(1.0 / (1.0 + np.exp(-1.5 * dlen)))
 
         tension_raw = (
-            0.70 * seg_spike +
-            0.25 * turn +
+            0.60 * seg_spike +
+            0.35 * turn +
             0.03 * punct +
             0.02 * pace
         )
@@ -165,7 +165,7 @@ def analyze_emotions_tension(sentences: list) -> dict:
     tz = robust_z(tension_raw_arr)
     tension_scaled = 10.0 * (1.0 / (1.0 + np.exp(-1.2 * tz)))
     tension_smooth = smooth_ema(tension_scaled)
-
+    print(f"Tension values: {[round(t, 2) for t in tension_smooth.tolist()]}")
     peak_idx = int(np.argmax(tension_smooth))
 
     print(f"Analysis complete: {len(parts)} parts, peak at part {peak_idx + 1}")

@@ -107,7 +107,7 @@ function showMetadata(data) {
         </div>
         <div>
             <div style="color:#666; font-size:12px; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px;">Sentences</div>
-            <span style="color:#e0e0e0; font-size:0.95rem;">${data.sentences.length}</span>
+            <span style="color:#e0e0e0; font-size:0.95rem;">${data.sentence_count || data.sentences.length}</span>
         </div>
         <div style="grid-column: 1 / -1;">
             <div style="color:#666; font-size:12px; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Summary</div>
