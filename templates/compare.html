@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Compare — Literary Viz</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -70,7 +72,7 @@
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             currentTab = tab;
-            switch(tab) {
+            switch (tab) {
                 case 'emotion': showEmotion(); break;
                 case 'tension': showTension(); break;
                 case 'characters': showCharacters(); break;
@@ -84,21 +86,40 @@
             return document.getElementById('compareTabContent');
         }
 
+        function interpolate(arr, targetLen) {
+            if (arr.length === targetLen) return arr;
+            const result = [];
+            for (let i = 0; i < targetLen; i++) {
+                const pos = (i / (targetLen - 1)) * (arr.length - 1);
+                const lo = Math.floor(pos);
+                const hi = Math.min(lo + 1, arr.length - 1);
+                const t = pos - lo;
+                result.push(arr[lo] * (1 - t) + arr[hi] * t);
+            }
+            return result;
+        }
+
         function showEmotion() {
-            const labels1 = book1.parts.map((p, i) => `Part ${i+1}`);
-            const labels2 = book2.parts.map((p, i) => `Part ${i+1}`);
-            const maxLen = Math.max(labels1.length, labels2.length);
-            const labels = Array.from({length: maxLen}, (_, i) => `Part ${i+1}`);
+            const maxLen = Math.max(book1.parts.length, book2.parts.length);
+            const labels = Array.from({ length: maxLen }, (_, i) => `Part ${i + 1}`);
+            const normLabels = Array.from({ length: 20 }, (_, i) => `${Math.round(i / 19 * 100)}%`);
+            const norm1 = interpolate(book1.valence, 20);
+            const norm2 = interpolate(book2.valence, 20);
 
             getContent().innerHTML = `
-                <h3 style="margin-bottom:16px; color:#ccc;">Emotional Valence</h3>
-                <div style="position:relative; width:100%; height:350px;">
-                    <canvas id="emotionChart"></canvas>
-                </div>`;
+        <h3 style="margin-bottom:16px; color:#ccc;">Emotional Valence</h3>
+        <div style="position:relative; width:100%; height:300px;">
+            <canvas id="emotionChart"></canvas>
+        </div>
+        <h3 style="margin:24px 0 8px; color:#ccc; font-size:14px;">Normalized (% of text)</h3>
+        <p style="color:#666; font-size:12px; margin-bottom:12px;">Both texts scaled to 0–100% for direct comparison</p>
+        <div style="position:relative; width:100%; height:250px;">
+            <canvas id="emotionNormChart"></canvas>
+        </div>`;
 
             setTimeout(() => {
-                const ctx = document.getElementById('emotionChart').getContext('2d');
-                new Chart(ctx, {
+                const ctx1 = document.getElementById('emotionChart').getContext('2d');
+                new Chart(ctx1, {
                     type: 'line',
                     data: {
                         labels,
@@ -106,21 +127,27 @@
                             {
                                 label: book1.title,
                                 data: book1.valence,
-                                borderColor: '#a78bfa',
-                                backgroundColor: 'rgba(167,139,250,0.1)',
-                                pointRadius: 4,
+                                borderColor: '#f87171',
+                                backgroundColor: 'rgba(248,113,113,0.1)',
+                                pointBackgroundColor: book1.valence.map(v => v > 0 ? '#4ade80' : '#f87171'),
+                                pointRadius: 5,
                                 tension: 0.4,
                                 fill: true,
+                                pointBorderColor: '#0f0f1a',
+                                pointBorderWidth: 1.5,
                                 borderWidth: 2
                             },
                             {
                                 label: book2.title,
                                 data: book2.valence,
-                                borderColor: '#60a5fa',
-                                backgroundColor: 'rgba(96,165,250,0.1)',
-                                pointRadius: 4,
+                                borderColor: '#2dd4bf',
+                                backgroundColor: 'rgba(45,212,191,0.1)',
+                                pointBackgroundColor: book2.valence.map(v => v > 0 ? '#4ade80' : '#f87171'),
+                                pointRadius: 5,
                                 tension: 0.4,
                                 fill: true,
+                                pointBorderColor: '#0f0f1a',
+                                pointBorderWidth: 1.5,
                                 borderWidth: 2
                             }
                         ]
@@ -135,22 +162,99 @@
                         }
                     }
                 });
+
+                const ctx2 = document.getElementById('emotionNormChart').getContext('2d');
+                new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: normLabels,
+                        datasets: [
+                            {
+                                label: book1.title,
+                                data: norm1,
+                                borderColor: '#f87171',
+                                backgroundColor: 'rgba(248,113,113,0.1)',
+                                pointBackgroundColor: norm1.map(v => v > 0 ? '#4ade80' : '#f87171'),
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                pointBorderColor: '#0f0f1a',
+                                pointBorderWidth: 1.5,
+                                borderWidth: 2
+                            },
+                            {
+                                label: book2.title,
+                                data: norm2,
+                                borderColor: '#2dd4bf',
+                                backgroundColor: 'rgba(45,212,191,0.1)',
+                                pointBackgroundColor: norm2.map(v => v > 0 ? '#4ade80' : '#f87171'),
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                pointBorderColor: '#0f0f1a',
+                                pointBorderWidth: 1.5,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, labels: { color: '#888' } } },
+                        scales: {
+                            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } },
+                            x: { grid: { display: false }, ticks: { color: '#666' } }
+                        }
+                    }
+                });
             }, 100);
         }
 
         function showTension() {
             const maxLen = Math.max(book1.parts.length, book2.parts.length);
-            const labels = Array.from({length: maxLen}, (_, i) => `Part ${i+1}`);
+            const labels = Array.from({ length: maxLen }, (_, i) => `Part ${i + 1}`);
+            const normLabels = Array.from({ length: 20 }, (_, i) => `${Math.round(i / 19 * 100)}%`);
+            const norm1 = interpolate(book1.tension, 20);
+            const norm2 = interpolate(book2.tension, 20);
+
+            const maxIdx1 = book1.tension.indexOf(Math.max(...book1.tension));
+            const maxIdx2 = book2.tension.indexOf(Math.max(...book2.tension));
+            const peak1 = book1.parts[maxIdx1];
+            const peak2 = book2.parts[maxIdx2];
 
             getContent().innerHTML = `
-                <h3 style="margin-bottom:16px; color:#ccc;">Narrative Tension</h3>
-                <div style="position:relative; width:100%; height:350px;">
-                    <canvas id="tensionChart"></canvas>
-                </div>`;
+        <h3 style="margin-bottom:16px; color:#ccc;">Narrative Tension</h3>
+        <div style="position:relative; width:100%; height:300px;">
+            <canvas id="tensionChart"></canvas>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px;">
+            <div style="padding:16px; background:#1a1a2e; border-radius:12px; border:1px solid #2a2a45;">
+                <div style="color:#f87171; font-size:13px; font-weight:500; margin-bottom:8px;">
+                    ${book1.title} — Peak Part ${peak1 ? peak1.part : '?'} (${peak1 ? peak1.sent_range : ''})
+                </div>
+                <div style="color:#888; font-size:12px; line-height:1.6;">
+                    "${peak1 && peak1.sentences && peak1.sentences.length ? peak1.sentences.join(' ') : 'No text available'}"
+                </div>
+            </div>
+            <div style="padding:16px; background:#1a1a2e; border-radius:12px; border:1px solid #2a2a45;">
+                <div style="color:#fb923c; font-size:13px; font-weight:500; margin-bottom:8px;">
+                    ${book2.title} — Peak Part ${peak2 ? peak2.part : '?'} (${peak2 ? peak2.sent_range : ''})
+                </div>
+                <div style="color:#888; font-size:12px; line-height:1.6;">
+                    "${peak2 && peak2.sentences && peak2.sentences.length ? peak2.sentences.join(' ') : 'No text available'}"
+                </div>
+            </div>
+        </div>
+        <h3 style="margin:24px 0 8px; color:#ccc; font-size:14px;">Normalized (% of text)</h3>
+        <p style="color:#666; font-size:12px; margin-bottom:12px;">Both texts scaled to 0–100% for direct comparison</p>
+        <div style="position:relative; width:100%; height:250px;">
+            <canvas id="tensionNormChart"></canvas>
+        </div>`;
 
             setTimeout(() => {
-                const ctx = document.getElementById('tensionChart').getContext('2d');
-                new Chart(ctx, {
+                // Original chart
+                const ctx1 = document.getElementById('tensionChart').getContext('2d');
+                new Chart(ctx1, {
                     type: 'line',
                     data: {
                         labels,
@@ -160,7 +264,8 @@
                                 data: book1.tension,
                                 borderColor: '#f87171',
                                 backgroundColor: 'rgba(248,113,113,0.1)',
-                                pointRadius: 4,
+                                pointBackgroundColor: book1.tension.map((v, i) => i === maxIdx1 ? '#f87171' : 'rgba(248,113,113,0.5)'),
+                                pointRadius: book1.tension.map((v, i) => i === maxIdx1 ? 9 : 4),
                                 tension: 0.4,
                                 fill: true,
                                 borderWidth: 2
@@ -170,7 +275,8 @@
                                 data: book2.tension,
                                 borderColor: '#fb923c',
                                 backgroundColor: 'rgba(251,146,60,0.1)',
-                                pointRadius: 4,
+                                pointBackgroundColor: book2.tension.map((v, i) => i === maxIdx2 ? '#fb923c' : 'rgba(251,146,60,0.5)'),
+                                pointRadius: book2.tension.map((v, i) => i === maxIdx2 ? 9 : 4),
                                 tension: 0.4,
                                 fill: true,
                                 borderWidth: 2
@@ -187,6 +293,46 @@
                         }
                     }
                 });
+
+                // Normalized chart
+                const ctx2 = document.getElementById('tensionNormChart').getContext('2d');
+                new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: normLabels,
+                        datasets: [
+                            {
+                                label: book1.title,
+                                data: norm1,
+                                borderColor: '#f87171',
+                                backgroundColor: 'rgba(248,113,113,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            },
+                            {
+                                label: book2.title,
+                                data: norm2,
+                                borderColor: '#fb923c',
+                                backgroundColor: 'rgba(251,146,60,0.1)',
+                                pointRadius: 4,
+                                tension: 0.4,
+                                fill: true,
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, labels: { color: '#888' } } },
+                        scales: {
+                            y: { min: 0, max: 10, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } },
+                            x: { grid: { display: false }, ticks: { color: '#666' } }
+                        }
+                    }
+                });
             }, 100);
         }
 
@@ -196,7 +342,7 @@
             function renderCharChart(book, canvasId) {
                 const chars = book.characters;
                 const focus = book.character_focus;
-                const parts = book.parts.map((p, i) => `Part ${i+1}`);
+                const parts = book.parts.map((p, i) => `Part ${i + 1}`);
                 const people = chars.people || [];
                 const animals = chars.animals || [];
                 const roles = chars.roles || [];
@@ -282,7 +428,7 @@
             ctx.fillStyle = '#0f0f1a';
             ctx.fillRect(0, 0, w, h);
 
-            const dirs = [[1,0],[0,1],[-1,0],[0,-1]];
+            const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
             function simulate(scale) {
                 let x = 0, y = 0, dir = 0;
@@ -403,4 +549,5 @@
         }
     </script>
 </body>
+
 </html>

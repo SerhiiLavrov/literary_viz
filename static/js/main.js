@@ -567,9 +567,11 @@ function renderLibrary(books) {
         list.innerHTML = '<p style="color:#666; text-align:center;">No books found</p>';
         return;
     }
-    list.innerHTML = books.map(book => `
-        <div style="padding:16px; background:#0f0f1a; border-radius:10px;
-            border:1px solid #222; margin-bottom:12px;
+    list.innerHTML = books.map(book => {
+        const isSelected = compareId1 === book.id;
+        return `
+        <div style="padding:16px; background:${isSelected ? '#1a1a3a' : '#0f0f1a'}; border-radius:10px;
+            border:1px solid ${isSelected ? '#a78bfa' : '#222'}; margin-bottom:12px;
             display:flex; justify-content:space-between; align-items:center;">
             <div style="cursor:pointer; flex:1;" onclick="loadFromLibrary(${book.id})">
                 <div style="color:#e0e0e0; font-weight:500; margin-bottom:4px;">${book.title}</div>
@@ -579,13 +581,14 @@ function renderLibrary(books) {
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; margin-left:16px;">
                 <div style="color:#a78bfa; font-size:12px;">${new Date(book.analyzed_at).toLocaleDateString()}</div>
                 <button onclick="selectForCompare(${book.id}, '${book.title}')"
-                    style="background:#1e1e35; border:1px solid #2a2a45; color:#60a5fa;
+                    style="background:${isSelected ? '#a78bfa' : '#1e1e35'}; border:1px solid ${isSelected ? '#a78bfa' : '#2a2a45'}; 
+                    color:${isSelected ? '#000' : '#60a5fa'};
                     padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;">
-                    Compare
+                    ${isSelected ? '✓ Selected' : 'Compare'}
                 </button>
             </div>
-        </div>
-    `).join('');
+        </div>`
+    }).join('');
 }
 
 let compareId1 = null;
@@ -596,10 +599,12 @@ function selectForCompare(id, title) {
         compareId1 = id;
         compareTitle1 = title;
         document.getElementById('librarySearch').placeholder = `Comparing "${title}" with... pick second book`;
+        loadLibrary();
     } else if (compareId1 === id) {
         compareId1 = null;
         compareTitle1 = null;
         document.getElementById('librarySearch').placeholder = 'Search by title or author...';
+        loadLibrary();
     } else {
         window.location.href = `/compare?id1=${compareId1}&id2=${id}`;
     }
