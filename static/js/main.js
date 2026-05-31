@@ -569,6 +569,7 @@ function renderLibrary(books) {
     }
     list.innerHTML = books.map(book => {
         const isSelected = compareId1 === book.id;
+        const safeTitle = book.title.replace(/'/g, "\\'");
         return `
         <div style="padding:16px; background:${isSelected ? '#1a1a3a' : '#0f0f1a'}; border-radius:10px;
             border:1px solid ${isSelected ? '#a78bfa' : '#222'}; margin-bottom:12px;
@@ -580,12 +581,7 @@ function renderLibrary(books) {
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; margin-left:16px;">
                 <div style="color:#a78bfa; font-size:12px;">${new Date(book.analyzed_at).toLocaleDateString()}</div>
-                <button onclick="selectForCompare(${book.id}, '${book.title}')"
-                    style="background:${isSelected ? '#a78bfa' : '#1e1e35'}; border:1px solid ${isSelected ? '#a78bfa' : '#2a2a45'}; 
-                    color:${isSelected ? '#000' : '#60a5fa'};
-                    padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;">
-                    ${isSelected ? '✓ Selected' : 'Compare'}
-                </button>
+                <button onclick="selectForCompare(${book.id}, '${safeTitle}')" style="background:${isSelected ? '#a78bfa' : '#1e1e35'}; border:1px solid ${isSelected ? '#a78bfa' : '#2a2a45'}; color:${isSelected ? '#000' : '#60a5fa'}; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;">${isSelected ? '✓ Selected' : 'Compare'}</button>
             </div>
         </div>`
     }).join('');
